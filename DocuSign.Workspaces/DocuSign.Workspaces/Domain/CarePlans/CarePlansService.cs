@@ -82,11 +82,22 @@ public class CarePlansService(IDocuSignApiProvider docuSignApiProvider, IAppConf
 
         foreach (var document in model.Documents)
         {
+            var documentRequest = new AddWorkspaceDocumentRequest
+            {
+                File = new AddWorkspaceDocumentRequestFile
+                {
+                    Content = Convert.FromBase64String(document.Base64String),
+                    FileName = document.Name
+                }
+            };
+            var addedDocument = await docuSignApiProvider.WorkspaceDocuments.AddWorkspaceDocumentAsync(accountRepository.AccountId, model.Physician.WorkspaceId, documentRequest);
+
             if (document.IsForSignature)
             {
                 var workspaceEnvelopeForCreate = new WorkspaceEnvelopeForCreate
                 {
-                    EnvelopeName = document.Name
+                    EnvelopeName = document.Name,
+                    DocumentIds = [addedDocument.DocumentId]
                 };
 
                 var envelopeResponse = await docuSignApiProvider.Workspace2.CreateWorkspaceEnvelopeAsync(
@@ -95,23 +106,6 @@ public class CarePlansService(IDocuSignApiProvider docuSignApiProvider, IAppConf
                     workspaceEnvelopeForCreate);
 
                 var eventNotificationUrl = $"{appConfiguration.DocuSign.EventNotificationBaseUrl}/api/callback/event";
-
-                var env = new EnvelopeDefinition
-                {
-                    EmailSubject = "Please Sign",
-                    EmailBlurb = "Sample text for email body",
-                    Status = sentStatus,
-                    EventNotifications = EventService.ConfigureEventNotifications(eventNotificationUrl)
-                };
-
-                var doc1 = new Document
-                {
-                    DocumentId = "1",
-                    Name = document.Name,
-                    DocumentBase64 = document.Base64String
-                };
-
-                env.Documents = [doc1];
 
                 var signHere1 = new SignHere
                 {
@@ -140,27 +134,20 @@ public class CarePlansService(IDocuSignApiProvider docuSignApiProvider, IAppConf
                     Signers = [signer1]
                 };
 
-                await docuSignApiProvider.EnvelopApi.UpdateRecipientsAsync(accountRepository.AccountId, envelopeResponse.EnvelopeId, recipients);
-
-                await docuSignApiProvider.EnvelopApi.UpdateDocumentsAsync(accountRepository.AccountId, envelopeResponse.EnvelopeId, env);
-
-                await docuSignApiProvider.EnvelopApi.UpdateAsync(accountRepository.AccountId, envelopeResponse.EnvelopeId,
-                    new Envelope(Status: sentStatus));
+                var updateEnvelopeRequest = new Envelope
+                {
+                    EmailSubject = "Please Sign",
+                    EmailBlurb = "Sample text for email body",
+                    EnvelopeId = envelopeResponse.EnvelopeId,
+                    Recipients = recipients,
+                    Status = sentStatus,
+                };
+                await docuSignApiProvider.EnvelopApi.UpdateAsync(accountRepository.AccountId, envelopeResponse.EnvelopeId, updateEnvelopeRequest);
 
                 documents.Add(new CareDocumentsModel(document.Name, document.IsForSignature, sentStatus));
             }
             else
             {
-                var documentRequest = new AddWorkspaceDocumentRequest
-                {
-                    File = new AddWorkspaceDocumentRequestFile
-                    {
-                        Content = Convert.FromBase64String(document.Base64String),
-                        FileName = document.Name
-                    }
-                };
-                await docuSignApiProvider.WorkspaceDocuments.AddWorkspaceDocumentAsync(accountRepository.AccountId, model.Physician.WorkspaceId, documentRequest);
-
                 documents.Add(new CareDocumentsModel(document.Name, document.IsForSignature, string.Empty));
             }
         }
