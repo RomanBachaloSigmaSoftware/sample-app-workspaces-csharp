@@ -161,9 +161,11 @@ public class CarePlansService(
                     Tabs = signer1Tabs
                 };
 
-                var recipients = new Recipients
+                var doc1 = new DocuSign.eSign.Model.Document
                 {
-                    Signers = [signer1]
+                    DocumentId = "1",
+                    Name = document.Name,
+                    DocumentBase64 = document.Base64String
                 };
 
                 var updateEnvelopeRequest = new Envelope

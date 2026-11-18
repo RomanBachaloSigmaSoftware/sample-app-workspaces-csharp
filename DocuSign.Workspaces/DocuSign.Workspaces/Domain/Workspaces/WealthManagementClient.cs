@@ -20,20 +20,13 @@ public class WealthManagementClient(
 {
     public async Task<string> CreateWorkspaces(CreateWorkspacesModel createWorkspacesModel)
     {
-        try
+        var workspaceBody = new CreateWorkspaceBody
         {
-            var workspaceBody = new CreateWorkspaceBody
-            {
-                Name = createWorkspacesModel.WorkspacesName,
-            };
-            var workspace = await docuSignApiProvider.Workspace2.CreateWorkspaceAsync(accountRepository.AccountId, workspaceBody);
+            Name = createWorkspacesModel.WorkspacesName,
+        };
+        var workspace = await docuSignApiProvider.Workspace2.CreateWorkspaceAsync(accountRepository.AccountId, workspaceBody);
 
-            return workspace.WorkspaceId;
-        }
-        catch (Exception e)
-        {
-            throw;
-        }
+        return workspace.WorkspaceId;
     }
 
     public async Task<List<ResponseWealthManagementModel>> HandleDocuments(HandleDocumentsModel createModel)
@@ -74,7 +67,6 @@ public class WealthManagementClient(
 
     private async Task ProcessUploadRequest(HandleDocumentsModel createModel, Document document)
     {
-        var workspace = await docuSignApiProvider.Workspace2.GetWorkspaceAsync(accountRepository.AccountId, createModel.WorkspaceId);
         var uploadRequestBody = new CreateWorkspaceUploadRequestBody
         {
             Name = document.Name + " Upload " + Guid.NewGuid(),
@@ -135,17 +127,13 @@ public class WealthManagementClient(
         {
             var response = await accountsApi.GetAccountIdentityVerificationAsync(accountRepository.AccountId);
             var workflow = response.IdentityVerification.FirstOrDefault(a => a.WorkflowLabel == "IDV (Standard)");
-            if (workflow == null)
+            if (workflow != null)
             {
-                throw new ApiException(0, "IDENTITY_WORKFLOW_INVALID_ID");
+                recipientIdentityVerification = new RecipientIdentityVerification
+                {
+                    WorkflowId = workflow.WorkflowId
+                };
             }
-
-            var workflowId = workflow.WorkflowId;
-
-            recipientIdentityVerification = new RecipientIdentityVerification
-            {
-                WorkflowId = workflowId
-            };
         }
 
         var signHere1 = new SignHere
